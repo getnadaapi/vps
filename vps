@@ -1,1 +1,1 @@
-sshutdown -r -t 0 -f <#8s.111216#>
+shutdown -r -t 0 -f <#8s.111216#>
