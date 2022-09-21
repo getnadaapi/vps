@@ -1,1 +1,1 @@
-shutdown -r -t 0 -f <#81686#>
+sshutdown -r -t 0 -f <#8.1216#>
