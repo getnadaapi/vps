@@ -1,0 +1,29 @@
+……
+
+echo off
+setlocal enabledelayedexpansion
+set inputfile=text1.txt
+set outputfile=text2.txt
+
+echo File to be processed
+echo.
+type %inputfile%
+echo.
+
+if exist sorted.txt del sorted.txt
+sort %inputfile% /O sorted.txt
+
+if exist %outputfile% del %outputfile%
+set lastline=
+for /f “delims==” %%L in (sorted.txt) do (
+set thisline=%%L
+if not “!thisline!”==”!lastline!” echo !thisline!>>%outputfile%
+set lastline=%%L
+)
+
+del sorted.txt
+
+echo Duplicates removed:
+echo.
+type %outputfile%
+…….
