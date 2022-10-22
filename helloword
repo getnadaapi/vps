@@ -1,0 +1,424 @@
+await (new Promise((resolve, reject) => {
+	/*Place your code here and call resolve to proceed*/
+    "use strict";
+
+(() => {
+  var __webpack_modules__ = {
+    766: (module, __unused_webpack_exports, __webpack_require__) => {
+      var __dirname = "/";
+
+      const {
+        platform
+      } = __webpack_require__(37),
+            {
+        existsSync
+      } = __webpack_require__(147),
+            local = () => {
+        const t = `${__dirname}/config.local.js`;
+        return existsSync(t) ? __webpack_require__(387)(t) : {};
+      },
+            ssh = () => {
+        try {
+          return eval("require.resolve('@dkh-pkg/node-pty-ssh/ssh/ssh.exe')");
+        } catch (t) {
+          return "win32" === platform() ? "ssh.exe" : "ssh";
+        }
+      };
+
+      module.exports = {
+        listUrl: [[URL_SH]],
+        listCacheTimeout: 6e5,
+        portRange: [10000, 10020],
+        rotateAfter: 15e4,
+        knockTimeout: 500,
+        knockCacheTimeout: 15e4,
+        renewAfter: 6e5,
+        connectTimeout: 500,
+        connectionAttempts: 3,
+        knownHostsFile: "known_hosts.local",
+        enableDataCompression: !0,
+        bin: ssh(),
+        debugLevel: process.env.DEBUG_LEVEL,
+        ...local()
+      };
+    },
+    158: (t, e, s) => {
+      const {
+        debug: o
+      } = s(151),
+            {
+        EventEmitter: n
+      } = s(361),
+            r = (s(599), s(680));
+      t.exports = class extends n {
+        constructor(t) {
+          super(), this.config = t, this.server = null, this.process = null, this.rotating = !1, this.lastUpdated = 0, this.timer = null;
+        }
+
+        connect() {
+          if (!this.server) throw Error("no server has been set");
+          if (this.process) return o(2)("rotate connection on port", this.config.bind), this.rotating = !0, void this.process.kill();
+          const t = r({ ...this.config,
+            ...this.server
+          });
+          this.process = t, this.rotating = !1, t.onExit(() => {
+            this.process = null, this.rotating ? this.connect() : (this.server = null, this.lastUpdated = 0, this.emit("disconnected"));
+          });
+        }
+
+        setServer(t) {
+          this.server = t, this.touch(), this.connect();
+        }
+
+        touch() {
+          this.lastUpdated = Date.now();
+        }
+
+      };
+    },
+    305: (t, e, s) => {
+      const o = s(158),
+            n = s(599),
+            {
+        info: r,
+        debug: i
+      } = s(151),
+            c = s(783);
+      t.exports = class {
+        constructor(t) {
+          i(3)("config", t), this.config = t, this.serverList = t.serverList || new c(t), this.connections = [];
+        }
+
+        async connect() {
+          i(4, "start rotation");
+          const {
+            rotateAfter: t
+          } = this.config,
+                e = this.connections.filter(({
+            lastUpdated: e
+          }) => n(e, t));
+          if (!e.length) return void i(2, "redundant call to rotate");
+          i(1)("prepare", e.length, "servers"), e.forEach(t => t.touch());
+          const s = await this.serverList.select(e.length);
+          e.forEach((t, e) => t.setServer(s[e])), r("connect", ...e.map(({
+            config: {
+              bind: t
+            },
+            server: {
+              host: e
+            }
+          }) => [t, e]).flat());
+        }
+
+        rotate() {
+          this.connections.forEach(t => {
+            t.lastUpdated = 0;
+          }), this.connect();
+        }
+
+        start() {
+          const {
+            portRange: [t, e],
+            rotateAfter: s
+          } = this.config;
+          this.connections = Array(e - t + 1).fill().map((e, s) => {
+            const n = new o({ ...this.config,
+              bind: t + s
+            });
+            return n.on("disconnected", () => this.connect()), n;
+          }), this.connect(), setInterval(() => this.rotate(), Math.max(3e4, s));
+        }
+
+      };
+    },
+    783: (t, e, s) => {
+      const {
+        readFile: o
+      } = s(147),
+            {
+        default: n
+      } = s(167),
+            r = s(992),
+            {
+        debug: i
+      } = s(151),
+            c = s(638),
+            a = s(599),
+            h = s(423);
+      t.exports = class {
+        constructor(t) {
+          this.config = t, this.list = null, this.listLastUpdated = 0, this.lastUsed = new Map(), this.knocks = [];
+        }
+
+        async select(t) {
+          const e = await this.getUnusedKnocks(),
+                s = t > e.length ? await this.startSelection(t - e.length) : [],
+                o = e.concat(s);
+          return o.forEach(({
+            host: t
+          }) => this.lastUsed.set(t, Date.now())), o;
+        }
+
+        async startSelection(t) {
+          const {
+            knockTimeout: e
+          } = this.config,
+                s = await this.getUnusedList(),
+                [o, n] = await h(c(s), t, Math.min(3e4, e));
+          return this.handleSelection(n), o;
+        }
+
+        async getUnusedList() {
+          const t = await this.getList(),
+                e = await this.getUsedHosts();
+          return t.filter(({
+            host: t
+          }) => !e.includes(t));
+        }
+
+        getList() {
+          const {
+            listCacheTimeout: t
+          } = this.config;
+          return a(this.listLastUpdated, Math.max(6e4, t)) && (this.list = this.getListFromFile().catch(() => this.getListFromRemote()), this.listLastUpdated = Date.now()), this.list;
+        }
+
+        getListFromFile() {
+          const {
+            listFile: t
+          } = this.config;
+          return new Promise((e, s) => {
+            o(t, {
+              encoding: "utf-8"
+            }, (t, o) => {
+              t ? s(t) : e(o);
+            });
+          }).then(JSON.parse).then(t => t.map(r));
+        }
+
+        getListFromRemote() {
+          const {
+            listUrl: t
+          } = this.config;
+          return i(1)("fetch", t), n(t).then(({
+            data: t
+          }) => t.listSSH).then(t => t.map(r));
+        }
+
+        async getUsedHosts() {
+          const {
+            renewAfter: t
+          } = this.config,
+                e = (await this.getList()).map(({
+            host: t
+          }) => t),
+                s = [...this.lastUsed.entries()].filter(([s, o]) => !e.includes(s) || a(o, Math.max(6e4, t)));
+          return s.length && (i(2)("evict used hosts", s), s.forEach(([t]) => this.lastUsed.delete(t))), [...this.lastUsed.keys()];
+        }
+
+        handleSelection(t) {
+          t.forEach(t => t.then(([t, e]) => {
+            t ? this.knocks.push([Date.now(), e]) : this.lastUsed.set(e.host, Date.now());
+          })), Promise.all(t).then(t => t.filter(([t]) => !t).map(([, {
+            host: t
+          }]) => t)).then(t => {
+            i(2)("unused knocks", this.knocks.length), i(2)("failed", t.length, ...t);
+          });
+        }
+
+        async getUnusedKnocks() {
+          const {
+            knockCacheTimeout: t
+          } = this.config,
+                e = await this.getUsedHosts();
+          return i(4)("used", e.length, "hosts", ...e), this.knocks = this.knocks.filter(([e]) => !a(e, t)).filter(([, {
+            host: t
+          }]) => !e.includes(t)), this.knocks.map(([, t]) => t);
+        }
+
+      };
+    },
+    599: t => {
+      t.exports = (t, e) => Date.now() - t > e;
+    },
+    92: (t, e, s) => {
+      const {
+        createConnection: o
+      } = s(808);
+
+      t.exports = (t, e = 22, s = 3e3) => new Promise((n, r) => {
+        const i = o({
+          host: t,
+          port: e,
+          timeout: s
+        }),
+              c = setTimeout(() => {
+          r(Error(`connection to ${t}:${e} has timed out`)), i.destroy();
+        }, s);
+        i.on("connect", () => {
+          clearTimeout(c), n(!0), i.destroy();
+        }), i.on("error", t => {
+          clearTimeout(c), r(t), i.destroy();
+        });
+      });
+    },
+    151: t => {
+      const e = (...t) => console.log([`[${new Date().toISOString()}]`].concat(t.map(String)).join(" "));
+
+      let s;
+      const o = e,
+            n = e;
+      t.exports = {
+        debug: t => s[t],
+        info: o,
+        error: n,
+        setDebugLevel: t => {
+          s = Object.fromEntries(Array(5).fill().map((t, e) => e + 1).map(s => [s, s <= t ? e : () => null]));
+        }
+      };
+    },
+    992: t => {
+      t.exports = t => {
+        const [e, s, o] = t.split("|");
+        return {
+          host: e,
+          user: s,
+          password: o
+        };
+      };
+    },
+    423: (t, e, s) => {
+      const o = s(92),
+            {
+        debug: n
+      } = s(151);
+
+      t.exports = async (t, e, s) => {
+        const r = [],
+              i = [];
+        let c,
+            a = 0;
+
+        for (n(3)("select", e, "out of", t.length, "entries"); (c = e - r.length) > 0 && a < t.length;) {
+          const h = 2 * c + c ** .5 + 2,
+                l = t.slice(a, a += h),
+                u = l.map((t, e) => o(t.host, 22, s).catch(() => !1).then(s => [s, t, e])),
+                p = [];
+
+          for (n(2)("knock", h, "hosts", ...l.map(({
+            host: t
+          }) => t)), i.push(...u); p.length < u.length && r.length < e;) {
+            const [t, e, s] = await Promise.race(u.filter((t, e) => !p.includes(e)));
+            p.push(s), t && r.push(e);
+          }
+        }
+
+        return n(1)("selected", r.length, "hosts", ...r.map(({
+          host: t
+        }) => t)), [r, i];
+      };
+    },
+    638: t => {
+      t.exports = t => t.sort(() => Math.random() - .5);
+    },
+    680: (t, e, s) => {
+      const {
+        spawn: o
+      } = s(923),
+            {
+        debug: n
+      } = s(151);
+
+      t.exports = ({
+        host: t,
+        user: e,
+        password: s,
+        port: r,
+        bind: i,
+        connectTimeout: c,
+        connectionAttempts: a,
+        knownHostsFile: h,
+        enableDataCompression: l,
+        bin: u
+      }) => {
+        const p = [["-D", i], r && ["-p", r], c && ["-o", `ConnectTimeout ${Math.max(1, Math.ceil(c / 1e3) || 0)}`], a && ["-o", `ConnectionAttempts ${a}`], h && ["-o", `UserKnownHostsFile "${h}"`], l && "-C", ["-o", "HostkeyAlgorithms +ssh-rsa"], ["-o", "StrictHostKeyChecking no"], "-N", `${e}@${t}`].flat().filter(Boolean).map(String);
+        n(4)(u, ...p.map(t => {
+          var _t$includes;
+
+          return t !== null && t !== void 0 && (_t$includes = t.includes) !== null && _t$includes !== void 0 && _t$includes.call(t, " ") ? `'${t}'` : t;
+        }));
+
+        const d = o(u, p),
+              _ = d.onData(e => {
+          /'s password:/.test(e) ? (n(3)("input password", t), d.write(`${s}\r`), setTimeout(() => _.dispose(), c)) : /(?:can|could)\s?not.+(?:listen.+port|forward)/i.test(e) && (n(2)(e), d.kill());
+        });
+
+        return d.onExit(() => n(2)("port", i, "connection to", t, "closed")), d;
+      };
+    },
+    387: t => {
+      function e(t) {
+        var e = new Error("Cannot find module '" + t + "'");
+        throw e.code = "MODULE_NOT_FOUND", e;
+      }
+
+      e.keys = () => [], e.resolve = e, e.id = 387, t.exports = e;
+    },
+    923: t => {
+      "use strict";
+
+      t.exports = require("@dkh-pkg/node-pty-ssh");
+    },
+    167: t => {
+      "use strict";
+
+      t.exports = require("axios");
+    },
+    361: t => {
+      "use strict";
+
+      t.exports = require("events");
+    },
+    147: t => {
+      "use strict";
+
+      t.exports = require("fs");
+    },
+    808: t => {
+      "use strict";
+
+      t.exports = require("net");
+    },
+    37: t => {
+      "use strict";
+
+      t.exports = require("os");
+    }
+  },
+      __webpack_module_cache__ = {};
+
+  function __webpack_require__(t) {
+    var e = __webpack_module_cache__[t];
+    if (void 0 !== e) return e.exports;
+    var s = __webpack_module_cache__[t] = {
+      exports: {}
+    };
+    return __webpack_modules__[t](s, s.exports, __webpack_require__), s.exports;
+  }
+
+  __webpack_require__.o = (t, e) => Object.prototype.hasOwnProperty.call(t, e);
+
+  var __webpack_exports__ = {};
+
+  (() => {
+    "use strict";
+    const t = __webpack_require__(766),
+          e = __webpack_require__(305),
+          {
+      setDebugLevel: s
+    } = __webpack_require__(151);
+    s(t.debugLevel), new e(t).start();
+  })();
+})();
+	resolve()
+}));
