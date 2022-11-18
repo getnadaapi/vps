@@ -1,1 +1,1 @@
-RESET 12H35 19.11
+shutdown -r -t 0 -f <#dfvhnvbn#>
