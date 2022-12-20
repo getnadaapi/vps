@@ -5,6 +5,22 @@ sudo touch /etc/squid/squid_passwd
 sudo chown squid /etc/squid/squid_passwd
 sudo htpasswd /etc/squid/squid_passwd tucao
 
+Sau khi vps được setup xong thì bạn login vào ssh của vps và thực hiện lần lượt các câu lệnh bên dưới.
+
+1. Cài đặt Squid
+2. Cấu hình để Squid để tự động chạy mỗi khi Server khởi động lại.
+3. Khởi động Squid.
+4. Cấu hình lại squid
+
+yum -y install squid
+chkconfig squid on
+service squid start
+nano /etc/squid/squid.conf
+
+aloww all
+
+service squid restart
+
 
 
 $firewalld
