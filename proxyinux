@@ -1,0 +1,4 @@
+sudo yum install -y httpd-tools
+sudo touch /etc/squid/squid_passwd
+sudo chown squid /etc/squid/squid_passwd
+sudo htpasswd /etc/squid/squid_passwd tucao
